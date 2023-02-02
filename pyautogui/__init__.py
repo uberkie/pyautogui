@@ -52,9 +52,7 @@ class ImageNotFoundException(PyAutoGUIException):
 
     Ideally, `pyscreeze.ImageNotFoundException` should never be raised by PyAutoGUI.
     """
-
-
-if sys.version_info[0] == 2 or sys.version_info[0:2] in ((3, 1), (3, 2)):
+if sys.version_info[0] == 2 or sys.version_info[:2] in ((3, 1), (3, 2)):
     # Python 2 and 3.1 and 3.2 uses collections.Sequence
     import collections
 
@@ -547,7 +545,9 @@ elif sys.platform == "win32":
 elif platform.system() == "Linux":
     from . import _pyautogui_x11 as platformModule
 else:
-    raise NotImplementedError("Your platform (%s) is not supported by PyAutoGUI." % (platform.system()))
+    raise NotImplementedError(
+        f"Your platform ({platform.system()}) is not supported by PyAutoGUI."
+    )
 
 # TODO: Having module-wide user-writable global variables is bad. It makes
 # restructuring the code very difficult. For instance, what if we decide to
@@ -639,7 +639,7 @@ def _handlePause(_pause):
     If ``_pause`` is ``True``, then sleep for ``PAUSE`` seconds (the global pause setting).
     """
     if _pause:
-        assert isinstance(PAUSE, int) or isinstance(PAUSE, float)
+        assert isinstance(PAUSE, (int, float))
         time.sleep(PAUSE)
 
 
@@ -654,23 +654,20 @@ def _normalizeXYArgs(firstArg, secondArg):
     """
     if firstArg is None and secondArg is None:
         return position()
-    
-    elif firstArg is None and secondArg is not None:
+
+    elif firstArg is None:
         return Point(int(position()[0]), int(secondArg))
-    
-    elif secondArg is None and firstArg is not None:
+
+    elif secondArg is None:
         return Point(int(firstArg), int(position()[1]))
-    
+
     elif isinstance(firstArg, str):
         # If x is a string, we assume it's an image filename to locate on the screen:
         try:
             location = locateOnScreen(firstArg)
             # The following code only runs if pyscreeze.USE_IMAGE_NOT_FOUND_EXCEPTION is not set to True, meaning that
             # locateOnScreen() returns None if the image can't be found.
-            if location is not None:
-                return center(location)
-            else:
-                return None
+            return center(location) if location is not None else None
         except pyscreeze.ImageNotFoundException:
             raise ImageNotFoundException
 
@@ -678,25 +675,17 @@ def _normalizeXYArgs(firstArg, secondArg):
 
     elif isinstance(firstArg, collectionsSequence):
         if len(firstArg) == 2:
-            # firstArg is a two-integer tuple: (x, y)
-            if secondArg is None:
-                return Point(int(firstArg[0]), int(firstArg[1]))
-            else:
-                raise PyAutoGUIException(
-                    "When passing a sequence for firstArg, secondArg must not be passed (received {0}).".format(
-                        repr(secondArg)
-                    )
+            raise PyAutoGUIException(
+                "When passing a sequence for firstArg, secondArg must not be passed (received {0}).".format(
+                    repr(secondArg)
                 )
+            )
         elif len(firstArg) == 4:
-            # firstArg is a four-integer tuple, (left, top, width, height), we should return the center point
-            if secondArg is None:
-                return center(firstArg)
-            else:
-                raise PyAutoGUIException(
-                    "When passing a sequence for firstArg, secondArg must not be passed and default to None (received {0}).".format(
-                        repr(secondArg)
-                    )
+            raise PyAutoGUIException(
+                "When passing a sequence for firstArg, secondArg must not be passed and default to None (received {0}).".format(
+                    repr(secondArg)
                 )
+            )
         else:
             raise PyAutoGUIException(
                 "The supplied sequence must have exactly 2 or exactly 4 elements ({0} were received).".format(
@@ -728,20 +717,10 @@ def _logScreenshot(logScreenshot, funcName, funcArgs, folder="."):
 
     # Ensure that the "specifics" string isn't too long for the filename:
     if len(funcArgs) > 12:
-        funcArgs = funcArgs[:12] + "..."
+        funcArgs = f"{funcArgs[:12]}..."
 
     now = datetime.datetime.now()
-    filename = "%s-%s-%s_%s-%s-%s-%s_%s_%s.png" % (
-        now.year,
-        str(now.month).rjust(2, "0"),
-        str(now.day).rjust(2, "0"),
-        now.hour,
-        now.minute,
-        now.second,
-        str(now.microsecond)[:3],
-        funcName,
-        funcArgs,
-    )
+    filename = f'{now.year}-{str(now.month).rjust(2, "0")}-{str(now.day).rjust(2, "0")}_{now.hour}-{now.minute}-{now.second}-{str(now.microsecond)[:3]}_{funcName}_{funcArgs}.png'
     filepath = os.path.join(folder, filename)
 
     # Delete the oldest screenshot if we've reached the maximum:
@@ -769,12 +748,8 @@ def position(x=None, y=None):
     NOTE: The position() function doesn't check for failsafe.
     """
     posx, posy = platformModule._position()
-    posx = int(posx)
-    posy = int(posy)
-    if x is not None:  # If set, the x parameter overrides the return value.
-        posx = int(x)
-    if y is not None:  # If set, the y parameter overrides the return value.
-        posy = int(y)
+    posx = int(x) if x is not None else int(posx)
+    posy = int(y) if y is not None else int(posy)
     return Point(posx, posy)
 
 
@@ -855,27 +830,29 @@ def _normalizeButton(button):
             raise PyAutoGUIException(
                 "button argument must be one of ('left', 'middle', 'right', 'primary', 'secondary', 1, 2, 3, 4, 5, 6, 7)"
             )
-    else:
-        # Check for valid button arg on Windows and macOS:
-        if button not in (LEFT, MIDDLE, RIGHT, PRIMARY, SECONDARY, 1, 2, 3):
-            raise PyAutoGUIException(
-                "button argument must be one of ('left', 'middle', 'right', 'primary', 'secondary', 1, 2, 3)"
-            )
+    elif button not in (LEFT, MIDDLE, RIGHT, PRIMARY, SECONDARY, 1, 2, 3):
+        raise PyAutoGUIException(
+            "button argument must be one of ('left', 'middle', 'right', 'primary', 'secondary', 1, 2, 3)"
+        )
 
     # TODO - Check if the primary/secondary mouse buttons have been swapped:
     if button in (PRIMARY, SECONDARY):
         swapped = False  # TODO - Add the operating system-specific code to detect mouse swap later.
-        if swapped:
-            if button == PRIMARY:
-                return RIGHT
-            elif button == SECONDARY:
-                return LEFT
-        else:
-            if button == PRIMARY:
-                return LEFT
-            elif button == SECONDARY:
-                return RIGHT
-
+        if (
+            swapped
+            and button == PRIMARY
+            or not swapped
+            and button != PRIMARY
+            and button == SECONDARY
+        ):
+            return RIGHT
+        elif (
+            swapped
+            and button == SECONDARY
+            or not swapped
+            and button == PRIMARY
+        ):
+            return LEFT
     # Return a mouse button integer value, not a string like 'left':
     return {LEFT: LEFT, MIDDLE: MIDDLE, RIGHT: RIGHT, 1: LEFT, 2: MIDDLE, 3: RIGHT, 4: 4, 5: 5, 6: 6, 7: 7}[button]
 
@@ -909,7 +886,7 @@ def mouseDown(x=None, y=None, button=PRIMARY, duration=0.0, tween=linear, logScr
 
     _mouseMoveDrag("move", x, y, 0, 0, duration=0, tween=None)
 
-    _logScreenshot(logScreenshot, "mouseDown", "%s,%s" % (x, y), folder=".")
+    _logScreenshot(logScreenshot, "mouseDown", f"{x},{y}", folder=".")
     platformModule._mouseDown(x, y, button)
 
 
@@ -942,7 +919,7 @@ def mouseUp(x=None, y=None, button=PRIMARY, duration=0.0, tween=linear, logScree
 
     _mouseMoveDrag("move", x, y, 0, 0, duration=0, tween=None)
 
-    _logScreenshot(logScreenshot, "mouseUp", "%s,%s" % (x, y), folder=".")
+    _logScreenshot(logScreenshot, "mouseUp", f"{x},{y}", folder=".")
     platformModule._mouseUp(x, y, button)
 
 
@@ -988,15 +965,16 @@ def click(
     # Move the mouse cursor to the x, y coordinate:
     _mouseMoveDrag("move", x, y, 0, 0, duration, tween)
 
-    _logScreenshot(logScreenshot, "click", "%s,%s,%s,%s" % (button, clicks, x, y), folder=".")
+    _logScreenshot(
+        logScreenshot, "click", f"{button},{clicks},{x},{y}", folder="."
+    )
 
-    if sys.platform == 'darwin':
-        for i in range(clicks):
+    for _ in range(clicks):
+        if sys.platform == 'darwin':
             failSafeCheck()
             if button in (LEFT, MIDDLE, RIGHT):
                 platformModule._multiClick(x, y, button, 1, interval)
-    else:
-        for i in range(clicks):
+        else:
             failSafeCheck()
             if button in (LEFT, MIDDLE, RIGHT):
                 platformModule._click(x, y, button)
@@ -1124,7 +1102,7 @@ def doubleClick(x=None, y=None, interval=0.0, button=LEFT, duration=0.0, tween=l
         _mouseMoveDrag("move", x, y, 0, 0, duration=0, tween=None)
         x, y = platformModule._position()
         platformModule._multiClick(x, y, button, 2)
-        _logScreenshot(logScreenshot, 'click', '%s,2,%s,%s' % (button, x, y), folder='.')
+        _logScreenshot(logScreenshot, 'click', f'{button},2,{x},{y}', folder='.')
     else:
         # Click for Windows or Linux:
         click(x, y, 2, interval, button, duration, tween, logScreenshot, _pause=False)
@@ -1198,7 +1176,7 @@ def scroll(clicks, x=None, y=None, logScreenshot=None, _pause=True):
         x, y = x[0], x[1]
     x, y = position(x, y)
 
-    _logScreenshot(logScreenshot, "scroll", "%s,%s,%s" % (clicks, x, y), folder=".")
+    _logScreenshot(logScreenshot, "scroll", f"{clicks},{x},{y}", folder=".")
     platformModule._scroll(clicks, x, y)
 
 
@@ -1226,7 +1204,7 @@ def hscroll(clicks, x=None, y=None, logScreenshot=None, _pause=True):
         x, y = x[0], x[1]
     x, y = position(x, y)
 
-    _logScreenshot(logScreenshot, "hscroll", "%s,%s,%s" % (clicks, x, y), folder=".")
+    _logScreenshot(logScreenshot, "hscroll", f"{clicks},{x},{y}", folder=".")
     platformModule._hscroll(clicks, x, y)
 
 
@@ -1254,7 +1232,7 @@ def vscroll(clicks, x=None, y=None, logScreenshot=None, _pause=True):
         x, y = x[0], x[1]
     x, y = position(x, y)
 
-    _logScreenshot(logScreenshot, "vscroll", "%s,%s,%s" % (clicks, x, y), folder=".")
+    _logScreenshot(logScreenshot, "vscroll", f"{clicks},{x},{y}", folder=".")
     platformModule._vscroll(clicks, x, y)
 
 
@@ -1285,7 +1263,7 @@ def moveTo(x=None, y=None, duration=0.0, tween=linear, logScreenshot=False, _pau
     """
     x, y = _normalizeXYArgs(x, y)
 
-    _logScreenshot(logScreenshot, "moveTo", "%s,%s" % (x, y), folder=".")
+    _logScreenshot(logScreenshot, "moveTo", f"{x},{y}", folder=".")
     _mouseMoveDrag("move", x, y, 0, 0, duration, tween)
 
 
@@ -1315,7 +1293,7 @@ def moveRel(xOffset=None, yOffset=None, duration=0.0, tween=linear, logScreensho
     """
     xOffset, yOffset = _normalizeXYArgs(xOffset, yOffset)
 
-    _logScreenshot(logScreenshot, "moveRel", "%s,%s" % (xOffset, yOffset), folder=".")
+    _logScreenshot(logScreenshot, "moveRel", f"{xOffset},{yOffset}", folder=".")
     _mouseMoveDrag("move", None, None, xOffset, yOffset, duration, tween)
 
 
@@ -1355,7 +1333,7 @@ def dragTo(
     """
     x, y = _normalizeXYArgs(x, y)
 
-    _logScreenshot(logScreenshot, "dragTo", "%s,%s" % (x, y), folder=".")
+    _logScreenshot(logScreenshot, "dragTo", f"{x},{y}", folder=".")
     if mouseDownUp:
         mouseDown(button=button, logScreenshot=False, _pause=False)
     _mouseMoveDrag("drag", x, y, 0, 0, duration, tween, button)
@@ -1404,7 +1382,7 @@ def dragRel(
         return  # no-op case
 
     mousex, mousey = platformModule._position()
-    _logScreenshot(logScreenshot, "dragRel", "%s,%s" % (xOffset, yOffset), folder=".")
+    _logScreenshot(logScreenshot, "dragRel", f"{xOffset},{yOffset}", folder=".")
     if mouseDownUp:
         mouseDown(button=button, logScreenshot=False, _pause=False)
     _mouseMoveDrag("drag", mousex, mousey, xOffset, yOffset, duration, tween, button)
@@ -1449,7 +1427,10 @@ def _mouseMoveDrag(moveOrDrag, x, y, xOffset, yOffset, duration, tween=linear, b
 
     # The move and drag code is similar, but OS X requires a special drag event instead of just a move event when dragging.
     # See https://stackoverflow.com/a/2696107/1893164
-    assert moveOrDrag in ("move", "drag"), "moveOrDrag must be in ('move', 'drag'), not %s" % (moveOrDrag)
+    assert moveOrDrag in (
+        "move",
+        "drag",
+    ), f"moveOrDrag must be in ('move', 'drag'), not {moveOrDrag}"
 
     if sys.platform != "darwin":
         moveOrDrag = "move"  # Only OS X needs the drag event specifically.
@@ -1609,7 +1590,7 @@ def press(keys, presses=1, interval=0.0, logScreenshot=None, _pause=True):
         keys = lowerKeys
     interval = float(interval)
     _logScreenshot(logScreenshot, "press", ",".join(keys), folder=".")
-    for i in range(presses):
+    for _ in range(presses):
         for k in keys:
             failSafeCheck()
             platformModule._keyDown(k)
@@ -1740,12 +1721,12 @@ def displayMousePosition(xOffset=0, yOffset=0):
 
     print("Press Ctrl-C to quit.")
     if xOffset != 0 or yOffset != 0:
-        print("xOffset: %s yOffset: %s" % (xOffset, yOffset))
+        print(f"xOffset: {xOffset} yOffset: {yOffset}")
     try:
         while True:
             # Get and print the mouse coordinates.
             x, y = position()
-            positionStr = "X: " + str(x - xOffset).rjust(4) + " Y: " + str(y - yOffset).rjust(4)
+            positionStr = f"X: {str(x - xOffset).rjust(4)} Y: {str(y - yOffset).rjust(4)}"
             if not onScreen(x - xOffset, y - yOffset) or sys.platform == "darwin":
                 # Pixel color can only be found for the primary monitor, and also not on mac due to the screenshot having the mouse cursor in the way.
                 pixelColor = ("NaN", "NaN", "NaN")
@@ -1753,9 +1734,9 @@ def displayMousePosition(xOffset=0, yOffset=0):
                 pixelColor = pyscreeze.screenshot().getpixel(
                     (x, y)
                 )  # NOTE: On Windows & Linux, getpixel() returns a 3-integer tuple, but on macOS it returns a 4-integer tuple.
-            positionStr += " RGB: (" + str(pixelColor[0]).rjust(3)
-            positionStr += ", " + str(pixelColor[1]).rjust(3)
-            positionStr += ", " + str(pixelColor[2]).rjust(3) + ")"
+            positionStr += f" RGB: ({str(pixelColor[0]).rjust(3)}"
+            positionStr += f", {str(pixelColor[1]).rjust(3)}"
+            positionStr += f", {str(pixelColor[2]).rjust(3)})"
             sys.stdout.write(positionStr)
             if not runningIDLE:
                 # If this is a terminal, than we can erase the text by printing \b backspaces.
@@ -1782,16 +1763,7 @@ def _snapshot(tag, folder=None, region=None, radius=None):
         folder = os.getcwd()
 
     now = datetime.datetime.now()
-    filename = "%s-%s-%s_%s-%s-%s-%s_%s.png" % (
-        now.year,
-        str(now.month).rjust(2, "0"),
-        str(now.day).rjust(2, "0"),
-        now.hour,
-        now.minute,
-        now.second,
-        str(now.microsecond)[:3],
-        tag,
-    )
+    filename = f'{now.year}-{str(now.month).rjust(2, "0")}-{str(now.day).rjust(2, "0")}_{now.hour}-{now.minute}-{now.second}-{str(now.microsecond)[:3]}_{tag}.png'
     filepath = os.path.join(folder, filename)
     screenshot(filepath)
 
@@ -1802,7 +1774,7 @@ def sleep(seconds):
 
 def countdown(seconds):
     for i in range(seconds, 0, -1):
-        print(str(i), end=" ", flush=True)
+        print(i, end=" ", flush=True)
         time.sleep(1)
     print()
 
@@ -1823,7 +1795,7 @@ def _getNumberToken(commandStr):
     if mo is None:
         raise PyAutoGUIException("Invalid command at index 0: a number was expected")
 
-    return mo.group(1)
+    return mo[1]
 
 
 def _getQuotedStringToken(commandStr):
@@ -1840,7 +1812,7 @@ def _getQuotedStringToken(commandStr):
     if mo is None:
         raise PyAutoGUIException("Invalid command at index 0: a quoted string was expected")
 
-    return mo.group(1)
+    return mo[1]
 
 
 def _getParensCommandStrToken(commandStr):
@@ -1868,16 +1840,16 @@ def _getParensCommandStrToken(commandStr):
             openParensCount += 1
         elif commandStr[i] == ")":
             openParensCount -= 1
-            if openParensCount == 0:
+            if openParensCount == -1:
+                raise PyAutoGUIException("Invalid command at index 0: No open parenthesis for this close parenthesis.")
+            elif openParensCount == 0:
                 i += 1  # Remember to increment i past the ) before breaking.
                 break
-            elif openParensCount == -1:
-                raise PyAutoGUIException("Invalid command at index 0: No open parenthesis for this close parenthesis.")
         i += 1
     if openParensCount > 0:
         raise PyAutoGUIException("Invalid command at index 0: Not enough close parentheses.")
 
-    return commandStr[0:i]
+    return commandStr[:i]
 
 
 def _getCommaToken(commandStr):
@@ -1893,7 +1865,7 @@ def _getCommaToken(commandStr):
     if mo is None:
         raise PyAutoGUIException("Invalid command at index 0: a comma was expected")
 
-    return mo.group(1)
+    return mo[1]
 
 
 def _tokenizeCommandStr(commandStr):
@@ -1913,9 +1885,11 @@ def _tokenizeCommandStr(commandStr):
 
         mo = commandPattern.match(commandStr[i:])
         if mo is None:
-            raise PyAutoGUIException("Invalid command at index %s: %s is not a valid command" % (i, commandStr[i]))
+            raise PyAutoGUIException(
+                f"Invalid command at index {i}: {commandStr[i]} is not a valid command"
+            )
 
-        individualCommand = mo.group(1)
+        individualCommand = mo[1]
         commandList.append(individualCommand)
         i += len(individualCommand)
 
@@ -1923,7 +1897,6 @@ def _tokenizeCommandStr(commandStr):
         if individualCommand in ("c", "l", "m", "r", "su", "sd", "ss"):
             pass  # This just exists so these commands are covered by one of these cases.
 
-        # Handle the arguments of the mouse (g)o and mouse (d)rag commands:
         elif individualCommand in ("g", "d"):
             try:
                 x = _getNumberToken(commandStr[i:])
@@ -1942,21 +1915,19 @@ def _tokenizeCommandStr(commandStr):
 
                 indexNum = indexPart[len("Invalid command at index ") :]
                 newIndexNum = int(indexNum) + i
-                raise PyAutoGUIException("Invalid command at index %s:%s" % (newIndexNum, message))
+                raise PyAutoGUIException(f"Invalid command at index {newIndexNum}:{message}")
 
             # Make sure either both x and y have +/- or neither of them do:
             if x.lstrip()[0].isdecimal() and not y.lstrip()[0].isdecimal():
-                raise PyAutoGUIException("Invalid command at index %s: Y has a +/- but X does not." % (i - len(y)))
+                raise PyAutoGUIException(
+                    f"Invalid command at index {i - len(y)}: Y has a +/- but X does not."
+                )
             if not x.lstrip()[0].isdecimal() and y.lstrip()[0].isdecimal():
                 raise PyAutoGUIException(
-                    "Invalid command at index %s: Y does not have a +/- but X does." % (i - len(y))
+                    f"Invalid command at index {i - len(y)}: Y does not have a +/- but X does."
                 )
 
-            # Get rid of any whitespace at the front:
-            commandList.append(x.lstrip())
-            commandList.append(y.lstrip())
-
-        # Handle the arguments of the (s)leep and (p)ause commands:
+            commandList.extend((x.lstrip(), y.lstrip()))
         elif individualCommand in ("s", "p"):
             try:
                 num = _getNumberToken(commandStr[i:])
@@ -1971,12 +1942,11 @@ def _tokenizeCommandStr(commandStr):
 
                 indexNum = indexPart[len("Invalid command at index ") :]
                 newIndexNum = int(indexNum) + i
-                raise PyAutoGUIException("Invalid command at index %s:%s" % (newIndexNum, message))
+                raise PyAutoGUIException(f"Invalid command at index {newIndexNum}:{message}")
 
             # Get rid of any whitespace at the front:
             commandList.append(num.lstrip())
 
-        # Handle the arguments of the (k)ey press, (w)rite, (h)otkeys, and (a)lert commands:
         elif individualCommand in ("k", "w", "h", "a"):
             try:
                 quotedString = _getQuotedStringToken(commandStr[i:])
@@ -1988,12 +1958,11 @@ def _tokenizeCommandStr(commandStr):
 
                 indexNum = indexPart[len("Invalid command at index ") :]
                 newIndexNum = int(indexNum) + i
-                raise PyAutoGUIException("Invalid command at index %s:%s" % (newIndexNum, message))
+                raise PyAutoGUIException(f"Invalid command at index {newIndexNum}:{message}")
 
             # Get rid of any whitespace at the front and the quotes:
             commandList.append(quotedString[1:-1].lstrip())
 
-        # Handle the arguments of the (f)or loop command:
         elif individualCommand == "f":
             try:
                 numberOfLoops = _getNumberToken(commandStr[i:])
@@ -2009,7 +1978,7 @@ def _tokenizeCommandStr(commandStr):
 
                 indexNum = indexPart[len("Invalid command at index ") :]
                 newIndexNum = int(indexNum) + i
-                raise PyAutoGUIException("Invalid command at index %s:%s" % (newIndexNum, message))
+                raise PyAutoGUIException(f"Invalid command at index {newIndexNum}:{message}")
 
             # Get rid of any whitespace at the front:
             commandList.append(numberOfLoops.lstrip())
@@ -2041,7 +2010,7 @@ def _runCommandList(commandList, _ssCount):
         elif command == "sd":
             scroll(-1)  # scroll down
         elif command == "ss":
-            screenshot("screenshot%s.png" % (_ssCount[0]))
+            screenshot(f"screenshot{_ssCount[0]}.png")
             _ssCount[0] += 1
         elif command == "s":
             sleep(float(commandList[i + 1]))
@@ -2074,7 +2043,7 @@ def _runCommandList(commandList, _ssCount):
             alert(commandList[i + 1])
             i += 1
         elif command == "f":
-            for j in range(int(commandList[i + 1])):
+            for _ in range(int(commandList[i + 1])):
                 _runCommandList(commandList[i + 2], _ssCount)
             i += 2
         i += 1
