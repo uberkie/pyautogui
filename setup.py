@@ -8,8 +8,9 @@ os.chdir(scriptFolder)
 
 # Find version info from module (without importing the module):
 with open('pyautogui/__init__.py', 'r') as fd:
-    version = re.search(r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]',
-                        fd.read(), re.MULTILINE).group(1)
+    version = re.search(
+        r'^__version__\s*=\s*[\'"]([^\'"]*)[\'"]', fd.read(), re.MULTILINE
+    )[1]
 
 # Use the README.md content for the long description:
 with io.open("README.md", encoding="utf-8") as fileObj:

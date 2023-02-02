@@ -17,12 +17,7 @@ os.chdir(scriptFolder)
 
 runningOnPython2 = sys.version_info[0] == 2
 
-if runningOnPython2:
-    INPUT_FUNC = raw_input
-else:
-    INPUT_FUNC = input
-
-
+INPUT_FUNC = raw_input if runningOnPython2 else input
 try:
     import pytweening
 except:
@@ -183,16 +178,16 @@ class TestGeneral(unittest.TestCase):
     def test_size(self):
         width, height = pyautogui.size()
 
-        self.assertTrue(isinstance(width, int), "Type of width is %s" % (type(width)))
-        self.assertTrue(isinstance(height, int), "Type of height is %s" % (type(height)))
-        self.assertTrue(width > 0, "Width is set to %s" % (width))
-        self.assertTrue(height > 0, "Height is set to %s" % (height))
+        self.assertTrue(isinstance(width, int), f"Type of width is {type(width)}")
+        self.assertTrue(isinstance(height, int), f"Type of height is {type(height)}")
+        self.assertTrue(width > 0, f"Width is set to {width}")
+        self.assertTrue(height > 0, f"Height is set to {height}")
 
     def test_position(self):
         mousex, mousey = pyautogui.position()
 
-        self.assertTrue(isinstance(mousex, int), "Type of mousex is %s" % (type(mousex)))
-        self.assertTrue(isinstance(mousey, int), "Type of mousey is %s" % (type(mousey)))
+        self.assertTrue(isinstance(mousex, int), f"Type of mousex is {type(mousex)}")
+        self.assertTrue(isinstance(mousey, int), f"Type of mousey is {type(mousey)}")
 
         # Test passing x and y arguments to position().
         pyautogui.moveTo(mousex + 1, mousey + 1)
@@ -251,7 +246,10 @@ class TestGeneral(unittest.TestCase):
         pyautogui.moveTo(1, 1)
 
         elapsed = time.time() - startTime
-        self.assertTrue(1.0 < elapsed < 1.1, "Took %s seconds, expected 1.0 < 1.1 seconds." % (elapsed))
+        self.assertTrue(
+            1.0 < elapsed < 1.1,
+            f"Took {elapsed} seconds, expected 1.0 < 1.1 seconds.",
+        )
 
         pyautogui.PAUSE = oldValue  # restore the old PAUSE value
 
@@ -358,7 +356,7 @@ class TestMouse(unittest.TestCase):
             self.assertEqual(
                 mousepos,
                 destination,
-                "%s tween move failed. mousepos set to %s instead of %s" % (tweenName, mousepos, destination),
+                f"{tweenName} tween move failed. mousepos set to {mousepos} instead of {destination}",
             )
 
     def test_moveRel(self):
@@ -440,7 +438,7 @@ class TestMouse(unittest.TestCase):
             self.assertEqual(
                 mousepos,
                 destination,
-                "%s tween move failed. mousepos set to %s instead of %s" % (tweenName, mousepos, destination),
+                f"{tweenName} tween move failed. mousepos set to {mousepos} instead of {destination}",
             )
 
     def test_scroll(self):
@@ -556,7 +554,7 @@ class TestRun(unittest.TestCase):
 
         # Do a whole bunch of tests with random no-argument commands with random whitespace.
         random.seed(42)
-        for i in range(100):
+        for _ in range(100):
             commands = []
             commands.extend(["c"] * random.randint(0, 9))
             commands.extend(["l"] * random.randint(0, 9))
@@ -568,8 +566,7 @@ class TestRun(unittest.TestCase):
             random.shuffle(commands)
             commandStr = []
             for command in commands:
-                commandStr.append(command)
-                commandStr.append(" " * random.randint(0, 9))
+                commandStr.extend((command, " " * random.randint(0, 9)))
             commandStr = "".join(commandStr)
             self.assertEqual(pyautogui._tokenizeCommandStr(commandStr), commands)
 
@@ -649,8 +646,6 @@ class HoldThread(threading.Thread):
         with pyautogui.hold(self.holdKeysArg):
             if self.pressKeysArg is not None:
                 pyautogui.press(self.pressKeysArg)
-            else:
-                pass
 
 
 class TestKeyboard(unittest.TestCase):
@@ -679,10 +674,7 @@ class TestKeyboard(unittest.TestCase):
         response = INPUT_FUNC()
         self.assertEqual(response, "Hello world!")
 
-        # All printable ASCII characters test
-        allKeys = []
-        for c in range(32, 127):
-            allKeys.append(chr(c))
+        allKeys = [chr(c) for c in range(32, 127)]
         allKeys = "".join(allKeys)
 
         t = TypewriteThread(allKeys + "\n")
@@ -703,7 +695,10 @@ class TestKeyboard(unittest.TestCase):
         response = INPUT_FUNC()
         self.assertEqual(response, "Hello world!")
         elapsed = time.time() - startTime
-        self.assertTrue(1.0 < elapsed < 2.0, "Took %s seconds, expected 1.0 < x 2.0 seconds." % (elapsed))
+        self.assertTrue(
+            1.0 < elapsed < 2.0,
+            f"Took {elapsed} seconds, expected 1.0 < x 2.0 seconds.",
+        )
 
     def test_typewrite_editable(self):
         # Backspace test
